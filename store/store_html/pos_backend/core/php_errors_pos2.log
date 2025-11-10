@@ -1,0 +1,15 @@
+[10-Nov-2025 04:34:49 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:34:59 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:44:58 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:45:08 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:52:50 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:59:10 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:59:18 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:59:24 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:59:26 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 04:59:30 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 05:00:07 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 05:00:09 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 05:00:23 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 05:00:27 Europe/Paris] PHP Parse error:  syntax error, unexpected variable "$tags" in /home/mhdlmsk/web_green_toptea/store/store_html/html/pos/api/registries/pos_registry.php on line 1426
+[10-Nov-2025 18:00:55 Europe/Paris] PHP Parse error:  syntax error, unexpected token "if" in /home/mhdlmsk/web_green_toptea/store/store_html/pos_backend/services/PromotionEngine.php on line 105

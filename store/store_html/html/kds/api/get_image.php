@@ -8,7 +8,7 @@
 declare(strict_types=1);
 
 // 1) Input & sanitization
-$name = isset($_GET['name']) ? trim((string)$_GET['name']) : '';
+$name = isset($_GET['file']) ? trim((string)$_GET['file']) : '';
 $name = basename($name); // drop any path
 if ($name === '' || !preg_match('/^[a-zA-Z0-9._-]+$/', $name)) {
     http_response_code(400);

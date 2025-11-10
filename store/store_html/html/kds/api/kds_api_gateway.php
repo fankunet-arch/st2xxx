@@ -59,25 +59,26 @@ if (!is_array($registry)) {
     exit;
 }
 
-// 获取 PDO
-$pdo = null;
-if (function_exists('db')) {
-    $pdo = db();
-} elseif (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
-    $pdo = $GLOBALS['pdo'];
-}
-if (!($pdo instanceof PDO)) {
-    http_response_code(500);
-    echo json_encode(array(
-        'status'  => 'error',
-        'message' => 'PDO not initialized from config.php',
-    ), JSON_UNESCAPED_UNICODE);
-    exit;
+// 获取 PDO (已修复：直接使用 config.php 提供的全局 $pdo)
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    // 兼容 $GLOBALS['pdo']
+    if (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
+         $pdo = $GLOBALS['pdo'];
+    } else {
+        // 如果 config.php 真的失败了（例如数据库密码错误）
+        // 我们在这里捕获它，而不是依赖 config.php 内部的 catch
+        http_response_code(500);
+        echo json_encode(array(
+            'status'  => 'error',
+            'message' => 'PDO variable not found after loading config. Check DB credentials in kds/core/config.php',
+        ), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
 
 // 运行（仅捕获 Exception，兼容 PHP5）
 try {
-    run_api($registry, $pdo);
+    run_api($registry, $pdo); // <--- 现在 $pdo 是有效的
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(array(

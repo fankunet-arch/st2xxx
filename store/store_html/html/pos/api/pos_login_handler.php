@@ -4,6 +4,8 @@
  * Backend Login Handler for POS
  * Engineer: Gemini | Date: 2025-10-30
  * Revision: 1.1 (Add user role to session)
+ *
+ * [GEMINI FIX 2025-11-10] Removed 'is_active = 1' from kds_stores and kds_users queries to fix SQLSTATE 42S22 error.
  */
 
 @session_start();
@@ -25,13 +27,15 @@ if (empty($store_code) || empty($username) || empty($password)) {
 
 try {
     // 1. Find the store
-    $stmt_store = $pdo->prepare("SELECT id, store_name FROM kds_stores WHERE store_code = ? AND is_active = 1 AND deleted_at IS NULL");
+    // [FIX] Removed 'is_active = 1'
+    $stmt_store = $pdo->prepare("SELECT id, store_name FROM kds_stores WHERE store_code = ? AND deleted_at IS NULL");
     $stmt_store->execute([$store_code]);
     $store = $stmt_store->fetch();
 
     if ($store) {
         // 2. Find the user within that store
-        $stmt_user = $pdo->prepare("SELECT id, username, password_hash, display_name, role FROM kds_users WHERE username = ? AND store_id = ? AND is_active = 1 AND deleted_at IS NULL");
+        // [FIX] Removed 'is_active = 1'
+        $stmt_user = $pdo->prepare("SELECT id, username, password_hash, display_name, role FROM kds_users WHERE username = ? AND store_id = ? AND deleted_at IS NULL");
         $stmt_user->execute([$username, $store['id']]);
         $user = $stmt_user->fetch();
 

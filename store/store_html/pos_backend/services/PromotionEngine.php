@@ -2,7 +2,8 @@
 /**
  * Toptea POS - 促销引擎 (V2)
  *
- * [cite_start][B1.3.1 PASS]: Modified applyPromotions to disable discounts if cart contains pass products (purchase or redeem). [cite: 113, 116, 120]
+ * [B1.3.1 PASS]: Modified applyPromotions to disable discounts if cart contains pass products (purchase or redeem).
+ * [GEMINI FIX 2025-11-10-v4] Corrected all SQL column names to match the database schema (e.g., promo_is_active, promo_code).
  */
 
 class PromotionEngine {
@@ -19,29 +20,32 @@ class PromotionEngine {
         $today = date('Y-m-d H:i:s');
         
         // 1. 加载所有激活的自动促销
+        // [FIX v4] Corrected column names: promo_is_active, promo_start_date, promo_end_date, promo_code, promo_priority
         $stmt_promo = $this->pdo->prepare("
             SELECT * FROM pos_promotions 
-            WHERE is_active = 1 
-              AND (start_date IS NULL OR start_date <= :today)
-              AND (end_date IS NULL OR end_date >= :today)
-              AND coupon_code IS NULL
-            ORDER BY priority DESC, id ASC
+            WHERE promo_is_active = 1 
+              AND (promo_start_date IS NULL OR promo_start_date <= :today)
+              AND (promo_end_date IS NULL OR promo_end_date >= :today)
+              AND promo_code IS NULL
+            ORDER BY promo_priority DESC, id ASC
         ");
         $stmt_promo->execute([':today' => $today]);
         $this->promotions = $stmt_promo->fetchAll(PDO::FETCH_ASSOC);
 
         // 2. 预加载所有激活的优惠券
+        // [FIX v4] Corrected column names: promo_is_active, promo_start_date, promo_end_date, promo_code
         $stmt_coupon = $this->pdo->prepare("
             SELECT * FROM pos_promotions 
-            WHERE is_active = 1 
-              AND (start_date IS NULL OR start_date <= :today)
-              AND (end_date IS NULL OR end_date >= :today)
-              AND coupon_code IS NOT NULL
+            WHERE promo_is_active = 1 
+              AND (promo_start_date IS NULL OR promo_start_date <= :today)
+              AND (promo_end_date IS NULL OR promo_end_date >= :today)
+              AND promo_code IS NOT NULL
         ");
         $stmt_coupon->execute([':today' => $today]);
         $this->coupons = [];
         foreach ($stmt_coupon->fetchAll(PDO::FETCH_ASSOC) as $rule) {
-            $this->coupons[strtoupper($rule['coupon_code'])] = $rule;
+            // [FIX v4] Use 'promo_code' instead of 'coupon_code'
+            $this->coupons[strtoupper($rule['promo_code'])] = $rule;
         }
     }
     
@@ -101,7 +105,7 @@ class PromotionEngine {
         $subtotal = $this->calculateSubtotal($cart);
         $totalDiscount = 0.0;
         
-        [cite_start]// [B1.3.1 PASS] 规则 B. 业务规则: 售卡/核销订单禁止任何优惠 [cite: 113, 116, 120]
+        // [B1.3.1 PASS] 规则 B. 业务规则: 售卡/核销订单禁止任何优惠
         if ($this->cartContainsPassProducts($cart)) {
             // 如果购物车包含次卡售卖或核销商品，立即返回 0 折扣
             return $this->formatResult($cart, $subtotal, 0.0);

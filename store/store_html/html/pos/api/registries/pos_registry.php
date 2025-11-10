@@ -1422,7 +1422,7 @@ if (!function_exists('handle_pass_purchase')) {
         $cart_item = $cart[0];
         $menu_item_id = (int)($cart_item['product_id'] ?? 0); // product_id 是 menu_item_id
 
-        [cite_start]// 4. 服务端校验 (依赖: pos_repo.php, pos_pass_helper.php) [cite: 113-115]
+        // 4. 服务端校验 (依赖: pos_repo.php, pos_pass_helper.php) [cite: 113-115]
         $tags = get_cart_item_tags($pdo, [$menu_item_id]);
         validate_pass_purchase_order($pdo, $cart, $tags, $promo_result);
 

@@ -15,4 +15,3 @@ require_once realpath(__DIR__ . '/kds_datetime_helper.php');
 require_once realpath(__DIR__ . '/kds_repo.php');
 
 // (注意: 此文件不加载 pos_repo.php 或 PromotionEngine)
-}
