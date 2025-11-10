@@ -5,11 +5,19 @@
  * (迁移自 /kds/api/*)
  * Version: 1.0.0
  * Date: 2025-11-08
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 3)]:
+ * 1. 修复了 'apply_overrides' 函数中的一个致命错误。
+ * 2. 当 L3 (adjustment) 规则添加一个 L1 (base recipe) 中不存在的新物料时，
+ * $recipe[$mid] 为 null。
+ * 3. 代码 'sort_order' => $recipe[$mid]['sort_order'] ?? (600 + $mid)
+ * 试图在 null 上访问 'sort_order'，导致 "Attempt to read property on null" 500 错误。
+ * 4. 已将其修复为: 'sort_order' => ($recipe[$mid] ?? [])['sort_order'] ?? (600 + $mid)
  */
 
 /* -------------------------------------------------------------------------- */
 /* 迁移自: kds/api/sop_handler.php [KdsSopParser, id_by_code, ...]            */
-/*                                                               */
+/* */
 /* -------------------------------------------------------------------------- */
 
 if (!class_exists('KdsSopParser')) {
@@ -417,7 +425,10 @@ if (!function_exists('apply_overrides')) {
                     'quantity' => (float)$adj['quantity'],
                     'unit_id' => (int)$adj['unit_id'],
                     'step_category' => norm_cat((string)$adj['step_category']),
-                    'sort_order' => $recipe[$mid]['sort_order'] ?? (600 + $mid),
+                    // [GEMINI SUPER-ENGINEER FIX (Error 3)]
+                    // 修复了致命错误：当 $recipe[$mid] 为 null 时 (L3 新增物料)，访问 $recipe[$mid]['sort_order'] 会失败。
+                    // 使用 ($recipe[$mid] ?? [])['sort_order'] ?? (600 + $mid) 来安全访问。
+                    'sort_order' => ($recipe[$mid] ?? [])['sort_order'] ?? (600 + $mid),
                     'source' => 'L3-OVERRIDE'
                 ];
             }
