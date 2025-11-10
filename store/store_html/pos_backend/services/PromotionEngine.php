@@ -17,34 +17,40 @@ class PromotionEngine {
     }
 
     private function loadActiveRules() {
+        // 修复 1: 将 Y-m_d 改为 Y-m-d
         $today = date('Y-m-d H:i:s');
         
         // 1. 加载所有激活的自动促销
-        // [FIX v4] Corrected column names: promo_is_active, promo_start_date, promo_end_date, promo_code, promo_priority
         $stmt_promo = $this->pdo->prepare("
             SELECT * FROM pos_promotions 
             WHERE promo_is_active = 1 
-              AND (promo_start_date IS NULL OR promo_start_date <= :today)
-              AND (promo_end_date IS NULL OR promo_end_date >= :today)
+              AND (promo_start_date IS NULL OR promo_start_date <= :today_start)
+              AND (promo_end_date IS NULL OR promo_end_date >= :today_end)
               AND promo_code IS NULL
             ORDER BY promo_priority DESC, id ASC
         ");
-        $stmt_promo->execute([':today' => $today]);
+        // 修复 2: 为两个占位符分别提供值
+        $stmt_promo->execute([
+            ':today_start' => $today,
+            ':today_end' => $today
+        ]);
         $this->promotions = $stmt_promo->fetchAll(PDO::FETCH_ASSOC);
 
         // 2. 预加载所有激活的优惠券
-        // [FIX v4] Corrected column names: promo_is_active, promo_start_date, promo_end_date, promo_code
         $stmt_coupon = $this->pdo->prepare("
             SELECT * FROM pos_promotions 
             WHERE promo_is_active = 1 
-              AND (promo_start_date IS NULL OR promo_start_date <= :today)
-              AND (promo_end_date IS NULL OR promo_end_date >= :today)
+              AND (promo_start_date IS NULL OR promo_start_date <= :today_start)
+              AND (promo_end_date IS NULL OR promo_end_date >= :today_end)
               AND promo_code IS NOT NULL
         ");
-        $stmt_coupon->execute([':today' => $today]);
+        // 修复 3: 为两个占位符分别提供值
+        $stmt_coupon->execute([
+            ':today_start' => $today,
+            ':today_end' => $today
+        ]);
         $this->coupons = [];
         foreach ($stmt_coupon->fetchAll(PDO::FETCH_ASSOC) as $rule) {
-            // [FIX v4] Use 'promo_code' instead of 'coupon_code'
             $this->coupons[strtoupper($rule['promo_code'])] = $rule;
         }
     }
