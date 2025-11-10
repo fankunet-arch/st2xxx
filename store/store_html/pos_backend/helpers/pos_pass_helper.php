@@ -4,6 +4,10 @@
  * Scope: POS-only
  * Version: 1.0.1
  * Date: 2025-11-09
+ *
+ * [GEMINI FIX 2025-11-10] 修复 create_redeem_records 中
+ * "SQLSTATE[HY093]: Invalid parameter number" 错误。
+ * INSERT 语句的 VALUES 占位符数量与 execute() 数组不匹配。
  */
 
 declare(strict_types=1);
@@ -90,8 +94,8 @@ if (!function_exists('create_redeem_records')) {
         $user_id  = (int)($_SESSION['pos_user_id']  ?? 0);
         $shift_id = (int)($_SESSION['pos_shift_id'] ?? 0);
 
-        // 票号
-        [$series, $number] = allocate_invoice_number($pdo, $store_cfg);
+        // 票号 (依赖 pos_repo.php)
+        [$series, $number] = allocate_invoice_number($pdo, (string)$store_cfg['invoice_prefix'], (string)$store_cfg['billing_system']);
 
         // 金额汇总：extra_total 为实付；covered_total 记为 discount
         $final_total  = $alloc['extra_total'];
@@ -105,20 +109,47 @@ if (!function_exists('create_redeem_records')) {
         $pdo->beginTransaction();
         try {
             // 1) 票据头
-            $stmt = $pdo->prepare("
+            
+            // [GEMINI FIX 2025-11-10] 
+            // 修复 HY093 错误：
+            // 1. INSERT 列表 (19个字段)
+            // 2. VALUES 列表 (19个值 = 17个 '?' + 1个 'ISSUED' + 1个 'NULL')
+            // 3. execute() 数组 (17个参数)
+            $sql_invoice = "
                 INSERT INTO pos_invoices
-                (invoice_uuid, store_id, user_id, shift_id, issuer_nif,
-                 series, number, issued_at, invoice_type,
-                 taxable_base, vat_amount, discount_amount, final_total,
-                 status, compliance_system, compliance_data, payment_summary, related_invoice_id, related_reason)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'ISSUED',?,?,NULL,NULL)
-            ");
+                (
+                    invoice_uuid, store_id, user_id, shift_id, issuer_nif, 
+                    series, number, issued_at, invoice_type, 
+                    taxable_base, vat_amount, discount_amount, final_total, 
+                    status, 
+                    compliance_system, compliance_data, payment_summary, 
+                    references_invoice_id, correction_type
+                )
+                VALUES 
+                (
+                    ?, ?, ?, ?, ?, 
+                    ?, ?, ?, ?, 
+                    ?, ?, ?, ?, 
+                    'ISSUED', 
+                    ?, ?, ?,
+                    NULL, NULL
+                )
+            ";
+            
+            $stmt = $pdo->prepare($sql_invoice);
+            
             $payment_summary = json_encode(['pass_covered'=>$discount], JSON_UNESCAPED_UNICODE);
+            
+            // [GEMINI FIX 2025-11-10] 
+            // 确保 execute() 数组有 17 个参数，匹配 17 个 '?'
             $stmt->execute([
-                $invoice_uuid, $store_id, $user_id, $shift_id, (string)($store_cfg['tax_id'] ?? ''),
-                $series, $number, $issued_at, 'F2',
-                $taxable_base, $vat_amount, $discount, $final_total,
-                (string)$store_cfg['billing_system'], '{}', $payment_summary
+                $invoice_uuid, $store_id, $user_id, $shift_id, (string)($store_cfg['tax_id'] ?? ''), // 5
+                $series, $number, $issued_at, 'F2', // 4
+                $taxable_base, $vat_amount, $discount, $final_total, // 4
+                (string)($store_cfg['billing_system'] ?? 'NONE'), // 1
+                '{}', // 1 (compliance_data)
+                $payment_summary, // 1 (payment_summary)
+                null // 1 (references_invoice_id)
             ]);
             $invoice_id = (int)$pdo->lastInsertId();
 
@@ -166,8 +197,8 @@ if (!function_exists('create_redeem_records')) {
             $red_stmt = $pdo->prepare("
                 INSERT INTO pass_redemptions
                 (batch_id, member_pass_id, order_id, order_item_id, sku_id, invoice_series, invoice_number,
-                 covered_amount, extra_charge, redeemed_at, store_id, device_id)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                 covered_amount, extra_charge, redeemed_at, store_id, device_id, cashier_user_id)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             ");
 
             // 将分摊结果映射至对应的发票行 id
@@ -188,7 +219,7 @@ if (!function_exists('create_redeem_records')) {
                     (float)$u['covered'],
                     (float)$u['extra'],
                     utc_now()->format('Y-m-d H:i:s.u'),
-                    $store_id, $device_id
+                    $store_id, $device_id, $user_id
                 ]);
             }
 

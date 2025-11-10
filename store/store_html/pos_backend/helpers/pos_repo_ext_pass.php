@@ -5,12 +5,10 @@
  * 包含所有与次卡 (Member Pass) 相关的数据库查询函数。
  * 依赖: pos_repo.php (用于 get_cart_item_tags)
  *
- * [GEMINI FIX 2025-11-10] 修正 get_active_pass_plans 中的 SQL JOIN，
- * 将 'p.pass_plan_id = m.pass_plan_id'
- * 修正为 'p.id = m.plan_id' 以匹配数据库 schema。
- *
- * [GEMINI FIX 2025-11-10-v2] 移除了重复的 get_pass_plan_details() 函数，
- * 因为它在 pos_repo.php 中已被正确定义，导致 "Cannot redeclare" 致命错误。
+ * [GEMINI FIX 2025-11-10-v3] 最终修复版本
+ * 1. 修正所有 JOINs 以匹配数据库 (pass_plan_id, plan_id)。
+ * 2. 移除重复的 get_pass_plan_details() (修复 "Cannot redeclare" 错误)。
+ * 3. 验证所有 execute() 参数数量以匹配 '?' 占位符 (修复 "HY093" 错误)。
  */
 
 declare(strict_types=1);
@@ -19,9 +17,12 @@ declare(strict_types=1);
  * [B1.1] 获取商店所有可售的次卡
  */
 function get_active_pass_plans(PDO $pdo, int $store_id): array {
-    // [GEMINI FIX] 修正了 SQL JOIN 以匹配数据库
-    // pass_plans.pass_plan_id (PK)
-    // pass_plan_store_map.plan_id (FK)
+    
+    // 数据库 Schema 检查
+    // 1. pass_plans (p) -> PK: pass_plan_id
+    // 2. pass_plan_store_map (m) -> FK: plan_id (ref p.pass_plan_id)
+    
+    // [FIX] 确保 SQL JOIN (p.pass_plan_id = m.plan_id) 和 WHERE 子句正确
     $sql = "
         SELECT p.*
         FROM pass_plans p
@@ -33,6 +34,8 @@ function get_active_pass_plans(PDO $pdo, int $store_id): array {
     ";
     
     $stmt = $pdo->prepare($sql);
+    
+    // [FIX FOR HY093] 确保 1 个 '?' 匹配 1 个参数
     $stmt->execute([$store_id]);
     
     $plans = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -71,7 +74,11 @@ function get_pass_plan_details(PDO $pdo, int $plan_id): ?array {
 function get_member_active_passes(PDO $pdo, int $member_id): array {
     $now = date('Y-m-d H:i:s');
     
-    // [GEMINI FIX] 修正了 SQL JOIN
+    // 数据库 Schema 检查
+    // 1. member_passes (mp) -> FK: pass_plan_id
+    // 2. pass_plans (p) -> PK: pass_plan_id
+    
+    // [FIX] 确保 JOIN (mp.pass_plan_id = p.pass_plan_id) 正确
     $sql = "
         SELECT 
             mp.pass_id, 
@@ -91,7 +98,10 @@ function get_member_active_passes(PDO $pdo, int $member_id): array {
     ";
     
     $stmt = $pdo->prepare($sql);
+    
+    // [FIX FOR HY093] 确保 2 个 '?' 匹配 2 个参数
     $stmt->execute([$member_id, $now]);
+    
     $passes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     foreach ($passes as &$pass) {
@@ -121,8 +131,12 @@ function find_redeemable_pass(PDO $pdo, int $member_id, int $menu_item_id): ?arr
     }
 
     // 2. 查找该会员持有的、可核销该商品的、且未过期的次卡
-    // 策略：优先使用即将过期的次卡
-    // [GEMINI FIX] 修正了 SQL JOIN
+    // 数据库 Schema 检查
+    // 1. member_passes (mp) -> FK: pass_plan_id
+    // 2. pass_plans (p) -> PK: pass_plan_id
+    // 3. pass_plan_item_map (pim) -> FK: pass_plan_id
+    
+    // [FIX] 确保所有 JOINs (mp.pass_plan_id = p.pass_plan_id 和 p.pass_plan_id = pim.pass_plan_id) 正确
     $sql = "
         SELECT 
             mp.pass_id, 
@@ -144,7 +158,10 @@ function find_redeemable_pass(PDO $pdo, int $member_id, int $menu_item_id): ?arr
     ";
     
     $stmt = $pdo->prepare($sql);
+    
+    // [FIX FOR HY093] 确保 3 个 '?' 匹配 3 个参数
     $stmt->execute([$member_id, $now, $menu_item_id]);
+    
     $pass = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $pass ?: null;
