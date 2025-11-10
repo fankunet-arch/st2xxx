@@ -8,7 +8,8 @@
  */
 
 // 1. Get and Sanitize File Name
-$name_raw = $_GET['name'] ?? 'noimg.png';
+// [FIX] Changed 'name' to 'file' to match kds_sop.js request
+$name_raw = $_GET['file'] ?? 'noimg.png';
 
 // [SECURITY FIX] Use basename() to prevent Path Traversal (e.g., ../../)
 // This ensures we only get a filename.

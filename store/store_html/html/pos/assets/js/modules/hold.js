@@ -33,7 +33,8 @@ export async function refreshHeldOrdersList() {
     const listContainer = document.getElementById('held_orders_list');
     listContainer.innerHTML = '<div class="text-center p-4"><div class="spinner-border spinner-border-sm"></div></div>';
     try {
-        const response = await fetch(`api/pos_hold_handler.php?action=list&sort=${STATE.holdSortBy}`, { credentials: 'same-origin' });
+        // [FIX] 修复 API 路径
+        const response = await fetch(`api/pos_api_gateway.php?res=hold&act=list&sort=${STATE.holdSortBy}`, { credentials: 'same-origin' });
         const result = await response.json();
 
         if (result.status === 'success') {
@@ -92,11 +93,12 @@ export async function createHoldOrder() {
     }
 
     try {
-        const response = await fetch('api/pos_hold_handler.php', {
+        // [FIX] 修复 API 路径
+        const response = await fetch('api/pos_api_gateway.php?res=hold&act=save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ action: 'save', note: note, cart: STATE.cart })
+            body: JSON.stringify({ note: note, cart: STATE.cart }) // action 已在 URL 中
         });
         const result = await response.json();
 
@@ -129,7 +131,8 @@ export async function restoreHeldOrder(id) {
     }
 
     try {
-        const response = await fetch(`api/pos_hold_handler.php?action=restore&id=${id}`, { credentials: 'same-origin' });
+        // [FIX] 修复 API 路径
+        const response = await fetch(`api/pos_api_gateway.php?res=hold&act=restore&id=${id}`, { credentials: 'same-origin' });
         const result = await response.json();
 
         if (result.status === 'success') {

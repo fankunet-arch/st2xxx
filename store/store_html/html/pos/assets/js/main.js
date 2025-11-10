@@ -424,8 +424,9 @@ async function handleSoldOutDecisionReset() {
     
     try {
         // 1. 调用API重置
-        const response = await fetch('api/pos_availability_handler.php?action=reset_all', { 
-            method: 'GET', // 使用 GET 或 POST 均可，取决于API设计
+        // [FIX] 修复 API 路径
+        const response = await fetch('api/pos_api_gateway.php?res=availability&act=reset_all', { 
+            method: 'POST', // 改为 POST 
             credentials: 'same-origin' 
         });
         const result = await response.json();
@@ -456,7 +457,8 @@ async function openAvailabilityPanel() {
     modal.show();
 
     try {
-        const response = await fetch('api/pos_availability_handler.php?action=get_all', { credentials: 'same-origin' });
+        // [FIX] 修复 API 路径
+        const response = await fetch('api/pos_api_gateway.php?res=availability&act=get_all', { credentials: 'same-origin' });
         const result = await response.json();
         if (result.status !== 'success') throw new Error(result.message);
 
@@ -503,12 +505,13 @@ async function handleAvailabilityToggle(event) {
     if (label) label.textContent = '保存中...';
 
     try {
-        const response = await fetch('api/pos_availability_handler.php', {
+        // [FIX] 修复 API 路径
+        const response = await fetch('api/pos_api_gateway.php?res=availability&act=toggle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({
-                action: 'toggle',
+                // action: 'toggle', // action 在 URL 中
                 menu_item_id: menu_item_id,
                 is_sold_out: is_sold_out
             })
@@ -539,7 +542,8 @@ async function initApplication() {
     console.log("initApplication started.");
     try {
         console.log("Checking EOD status...");
-        const eodStatusResponse = await fetch('./api/check_eod_status.php', { credentials: 'same-origin' });
+        // [FIX] 修复 API 路径
+        const eodStatusResponse = await fetch('./api/pos_api_gateway.php?res=eod&act=check_status', { credentials: 'same-origin' });
         const eodStatusResult = await eodStatusResponse.json();
         console.log("EOD status result:", eodStatusResult);
 

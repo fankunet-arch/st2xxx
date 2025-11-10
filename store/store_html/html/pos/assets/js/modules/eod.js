@@ -246,10 +246,11 @@ export async function openEodModal(){
   forceVisibleModal('eodSummaryModal');
 
   try{
-    let apiUrl = 'api/eod_summary_handler.php?action=get_preview';
+    // [FIX] 修复 API 路径
+    let apiUrl = 'api/pos_api_gateway.php?res=eod&act=get_preview';
     if (STATE.unclosedEodDate) apiUrl += `&target_business_date=${STATE.unclosedEodDate}`;
 
-    const resp = await fetch(apiUrl, { cache: 'no-store' });
+    const resp = await fetch(apiUrl, { cache: 'no-store', credentials: 'same-origin' });
     const result = await resp.json();
     if(result.status !== 'success') throw new Error(result.message || 'Load failed');
 
@@ -349,17 +350,19 @@ export function openEodConfirmationModal(){
 export async function submitEodReportFinal(){
   const payload = pendingEodPayload || $('#eodConfirmScreen')?.dataset?.payload;
   if(!payload){ toast('发生未知错误，请重试'); return; }
-  payload.action = 'submit_report';
+  // payload.action = 'submit_report'; // action 已在 URL 中
   if (STATE.unclosedEodDate) payload.target_business_date = STATE.unclosedEodDate;
 
   const btn = document.getElementById('eodDoSubmit');
   if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>'; }
 
   try{
-    const resp = await fetch('api/eod_summary_handler.php', {
+    // [FIX] 修复 API 路径
+    const resp = await fetch('api/pos_api_gateway.php?res=eod&act=submit_report', {
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      credentials: 'same-origin'
     });
     const result = await resp.json();
     if(!resp.ok || result.status!=='success') throw new Error(result.message||'提交失败');
@@ -428,9 +431,10 @@ async function confirmWithDBAfterSubmit(){
 /* ========= 从服务器回读“已存档报告” ========= */
 async function fetchServerEod(){
   try{
-    let apiUrl = 'api/eod_summary_handler.php?action=get_preview';
+    // [FIX] 修复 API 路径
+    let apiUrl = 'api/pos_api_gateway.php?res=eod&act=get_preview';
     if (STATE.unclosedEodDate) apiUrl += `&target_business_date=${STATE.unclosedEodDate}`;
-    const resp = await fetch(apiUrl, { cache:'no-store' });
+    const resp = await fetch(apiUrl, { cache:'no-store', credentials: 'same-origin' });
     const j = await resp.json();
     if(j.status !== 'success') throw new Error(j.message || 'load failed');
 
@@ -463,7 +467,8 @@ function setSyncNote(status){
 /* ========= 历史列表（如需） ========= */
 export async function loadEodList(){
   try{
-    const resp = await fetch('./api/eod_list.php?limit=20', { credentials:'same-origin' });
+    // [FIX] 修复 API 路径
+    const resp = await fetch('./api/pos_api_gateway.php?res=eod&act=list&limit=20', { credentials:'same-origin' });
     const j = await resp.json();
     if(j.status !== 'success'){ toast(j.message || '加载交接班记录失败'); return; }
     renderEodList(j.data?.items || []);
@@ -640,13 +645,15 @@ async function confirmEodSynced(localEod, eodId){
     let serverEod = null;
 
     if (eodId) {
-      const j = await apiGetJSON(`./api/eod_get.php?eod_id=${encodeURIComponent(eodId)}`);
+        // [FIX] 修复 API 路径
+      const j = await apiGetJSON(`./api/pos_api_gateway.php?res=eod&act=get&eod_id=${encodeURIComponent(eodId)}`);
       if (j.status === 'success' && j.data && j.data.item) {
         serverEod = j.data.item;
       }
     }
     if (!serverEod) {
-      const j = await apiGetJSON('./api/eod_list.php?limit=1');
+      // [FIX] 修复 API 路径
+      const j = await apiGetJSON('./api/pos_api_gateway.php?res=eod&act=list&limit=1');
       if (j.status === 'success' && Array.isArray(j.data?.items) && j.data.items.length > 0) {
         serverEod = j.data.items[0];
       }
@@ -699,7 +706,7 @@ try {
 } catch (e) { console.warn('[EOD] auto init failed', e); }
 
 /* =========================
- *  EOD 历史弹窗（新增）
+ * EOD 历史弹窗（新增）
  * ========================= */
 
 // 1) 在 eod.js 里把 ensureCompletedModal() 里这行改掉：
@@ -761,7 +768,8 @@ export async function openEodHistory(){
   modal.show();
 
   try{
-    const resp = await fetch('./api/eod_list.php?limit=50', { credentials:'same-origin', cache:'no-store' });
+    // [FIX] 修复 API 路径
+    const resp = await fetch('./api/pos_api_gateway.php?res=eod&act=list&limit=50', { credentials:'same-origin', cache:'no-store' });
     const j = await resp.json();
     if (j.status !== 'success') throw new Error(j.message || '加载失败');
     renderEodHistory(j.data?.items || []);
@@ -807,7 +815,7 @@ document.addEventListener('click', async (e)=>{
   const id = btn.getAttribute('data-id');
   btn.disabled = true;
   try{
-    const data = await fetchEodPrintData(id);
+    const data = await fetchEodPrintData(id); // api.js 已经指向网关
     const tpl  = STATE.printTemplates?.EOD_REPORT;
     if (!tpl) throw new Error('找不到打印模板');
     await printReceipt(data, tpl);

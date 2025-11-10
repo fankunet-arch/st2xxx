@@ -86,7 +86,8 @@ export function initializeShiftModals() {
 /** 启动时或状态变化时检查班次状态 */
 export async function checkShiftStatus() {
   try {
-    const resp = await fetch('./api/pos_shift_handler.php?action=status', { credentials: 'same-origin' });
+    // [FIX] 修复 API 路径
+    const resp = await fetch('./api/pos_api_gateway.php?res=shift&act=status', { credentials: 'same-origin' });
     const result = await resp.json();
     if (result.status !== 'success') {
       console.warn('checkShiftStatus error:', result.message);
@@ -148,11 +149,12 @@ export async function handleStartShift(e) {
   }
 
   try {
-    const resp = await fetch('./api/pos_shift_handler.php', {
+    // [FIX] 修复 API 路径
+    const resp = await fetch('./api/pos_api_gateway.php?res=shift&act=start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ action: 'start', starting_float: val })
+      body: JSON.stringify({ starting_float: val }) // action 已在 URL 中
     });
     const result = await resp.json();
 
@@ -190,11 +192,12 @@ export async function handleForceStartShift(e) {
     }
 
     try {
-        const resp = await fetch('./api/pos_shift_handler.php', {
+        // [FIX] 修复 API 路径
+        const resp = await fetch('./api/pos_api_gateway.php?res=shift&act=force_start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ action: 'force_start', starting_float: val })
+            body: JSON.stringify({ starting_float: val }) // action 已在 URL 中
         });
         const result = await resp.json();
 
@@ -234,11 +237,12 @@ export async function handleEndShift(e) {
   }
 
   try {
-    const resp = await fetch('./api/pos_shift_handler.php', {
+    // [FIX] 修复 API 路径
+    const resp = await fetch('./api/pos_api_gateway.php?res=shift&act=end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ action: 'end', counted_cash: val })
+      body: JSON.stringify({ counted_cash: val }) // action 已在 URL 中
     });
     const result = await resp.json();
 

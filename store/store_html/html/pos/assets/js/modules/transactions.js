@@ -199,7 +199,8 @@ async function refreshTxnList() {
 
     listTarget.innerHTML = '<div class="text-center p-4"><div class="spinner-border spinner-border-sm"></div></div>';
 
-    let apiUrl = `api/pos_transaction_handler.php?action=list&start_date=${startDate}&end_date=${endDate}`;
+    // [FIX] 修复 API 路径
+    let apiUrl = `api/pos_api_gateway.php?res=transaction&act=list&start_date=${startDate}&end_date=${endDate}`;
 
     try {
         const response = await fetch(apiUrl, { credentials: 'same-origin' });
@@ -249,7 +250,8 @@ export async function showTxnDetails(id) {
     detailModal.show();
 
     try {
-        const response = await fetch(`api/pos_transaction_handler.php?action=get_details&id=${id}`, { credentials: 'same-origin' });
+        // [FIX] 修复 API 路径
+        const response = await fetch(`api/pos_api_gateway.php?res=transaction&act=get_details&id=${id}`, { credentials: 'same-origin' });
         const result = await response.json();
         if (result.status === 'success') {
             const d = result.data;

@@ -208,23 +208,26 @@ export const showCreateMemberModal = openMemberCreateModal;
 
 /* ----------------- API（JSON → x-www-form-urlencoded → GET 回退） ----------------- */
 async function callMemberAPI(url, payload){
+  // [FIX] 添加 credentials: 'same-origin' 到所有 fetch
+  const credentials = { credentials: 'same-origin' };
+
   // 1) JSON
   try{
-    const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload), ...credentials });
     if (r.ok){ const j = await r.json().catch(()=>null); if (j && (j.status==='success' || j.ok)) return j.data || j.member || null; }
   }catch(_e){}
 
   // 2) x-www-form-urlencoded（很多传统 PHP 会要求这个）
   try{
     const body = new URLSearchParams(payload).toString();
-    const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body });
+    const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body, ...credentials });
     if (r.ok){ const j = await r.json().catch(()=>null); if (j && (j.status==='success' || j.ok)) return j.data || j.member || null; }
   }catch(_e){}
 
   // 3) GET
   try{
     const qs = new URLSearchParams(payload).toString();
-    const r = await fetch(`${url}?${qs}`, { method:'GET' });
+    const r = await fetch(`${url}?${qs}`, { method:'GET', ...credentials });
     if (r.ok){ const j = await r.json().catch(()=>null); if (j && (j.status==='success' || j.ok)) return j.data || j.member || null; }
   }catch(_e){}
 
@@ -272,8 +275,12 @@ export async function findMember(phone){
       return null;
     }
 
-    const payload = { action:'find', phone: input };
-    const endpoints = ['api/pos_member_handler.php', 'api/member_handler.php'];
+    // [FIX] 修复 API 路径
+    const payload = { phone: input }; // action 在 URL 中
+    const endpoints = [
+        'api/pos_api_gateway.php?res=member&act=find', 
+        'api/member_handler.php' // 保留旧的回退
+    ];
     let found = null;
     for (const url of endpoints){
       found = await callMemberAPI(url, payload);
@@ -304,30 +311,41 @@ export async function findMember(phone){
 /* ----------------- 导出：创建会员 ----------------- */
 export async function createMember(payload){
   try{
-    let name, phone, email;
+    let name, phone, email, first_name, last_name, birthdate;
     if (payload){
-      name  = toStr(payload.name).trim();
-      phone = sanitizePhoneInput(payload.phone);
+      name  = toStr(payload.name).trim(); // 兼容旧
+      phone = sanitizePhoneInput(payload.phone ?? payload.phone_number);
       email = toStr(payload.email).trim();
+      first_name = toStr(payload.first_name).trim();
+      last_name = toStr(payload.last_name).trim();
+      birthdate = toStr(payload.birthdate).trim();
     }else{
-      name  = toStr($('#member_name')?.value).trim();
       phone = sanitizePhoneInput($('#member_phone')?.value);
+      first_name = toStr($('#member_firstname')?.value).trim();
+      last_name = toStr($('#member_lastname')?.value).trim();
       email = toStr($('#member_email')?.value).trim();
+      birthdate = toStr($('#member_birthdate')?.value).trim();
     }
-    if (!name || !phone){
-      renderInlineHint({ text:'姓名与手机号为必填', type:'warn' });
+    if (!phone){
+      renderInlineHint({ text:'手机号为必填', type:'warn' });
       return null;
     }
 
-    const endpoints = ['api/pos_member_handler.php', 'api/member_handler.php'];
-    const req = { action:'create', name, phone, email };
+    // [FIX] 修复 API 路径
+    const endpoints = [
+        'api/pos_api_gateway.php?res=member&act=create', 
+        'api/member_handler.php' // 保留旧的回退
+    ];
+    // 适配新后端的载荷
+    const req = { data: { phone_number: phone, first_name, last_name, email, birthdate } };
     let created = null;
     for (const url of endpoints){
       created = await callMemberAPI(url, req);
       if (created) break;
     }
     if (!created){
-      created = { id:'LOCAL-'+Date.now(), name, phone, email, points:0, _local:true };
+      // 本地回退
+      created = { id:'LOCAL-'+Date.now(), first_name, last_name, phone_number: phone, email, birthdate, points_balance:0, _local:true };
     }
 
     linkMember(created);
