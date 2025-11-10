@@ -25,6 +25,11 @@
  * [FIX 4.1 - UI (Definitive)]
  * 1. 移除 #opsOffcanvas 和 #settingsOffcanvas 上的 h-75 类。
  * 2. 为 #opsOffcanvas 和 #settingsOffcanvas 添加内联样式 style="height: auto;"
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 1.A)]:
+ * 1. 补全了 #member_section 的 HTML 结构，以匹配 ui.js 和 member.js 的选择器。
+ * 2. 修复了购物车侧边栏总计区域的 ID (cart_subtotal_offcanvas, cart_discount, cart_final_total)。
+ * 3. 修复了底部栏总计 ID 为 cart_subtotal 以便 ui.js 更新。
  */
 
 // This MUST be the first include. It checks if the user is logged in.
@@ -79,26 +84,71 @@ $cache_version = time();
 
   <main class="container-fluid pos-container"><div class="row g-2"><div class="col-12"><div class="input-group search-box prominent"><span class="input-group-text"><i class="bi bi-search"></i></span><input type="text" class="form-control" id="search_input" placeholder="搜索饮品或拼音简称…"><button class="btn btn-outline-ink" id="clear_search"><i class="bi bi-x-lg"></i></button></div></div><div class="col-12"><div id="category_scroller" class="nav nav-pills flex-nowrap overflow-x-auto gap-2"></div></div></div><div class="row row-cols-5 g-2 mt-2" id="product_grid"></div></main>
 
-  <div class="pos-bottombar border-0"><div class="container-fluid d-flex align-items-center justify-content-between" id="bottom_bar"><button class="btn btn-outline-ink d-flex align-items-center gap-2" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas" id="btn_cart_open"><i class="bi bi-bag-check"></i> <span data-i18n="cart">购物车</span><span class="badge bg-brand-soft text-brand fw-semibold" id="cart_count">0</span></button><div class="text-end me-auto ms-3 small text-muted d-none d-sm-block"><div data-i18n="total_before_discount">合计</div><div class="fs-5 text-ink fw-semibold" id="cart_total">€0.00</div></div><div class="d-flex gap-2 align-items-stretch"><button class="btn btn-outline-ink" data-bs-toggle="offcanvas" data-bs-target="#opsOffcanvas" id="btn_ops"><i class="bi bi-grid"></i> <span data-i18n="more">功能</span></button></div></div></div>
+  <div class="pos-bottombar border-0"><div class="container-fluid d-flex align-items-center justify-content-between" id="bottom_bar"><button class="btn btn-outline-ink d-flex align-items-center gap-2" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas" id="btn_cart_open"><i class="bi bi-bag-check"></i> <span data-i18n="cart">购物车</span><span class="badge bg-brand-soft text-brand fw-semibold" id="cart_count">0</span></button>
+  
+  <div class="text-end me-auto ms-3 small text-muted d-none d-sm-block"><div data-i18n="total_before_discount">合计</div><div class="fs-5 text-ink fw-semibold" id="cart_subtotal">€0.00</div></div>
+  
+  <div class="d-flex gap-2 align-items-stretch"><button class="btn btn-outline-ink" data-bs-toggle="offcanvas" data-bs-target="#opsOffcanvas" id="btn_ops"><i class="bi bi-grid"></i> <span data-i18n="more">功能</span></button></div></div></div>
 
   <div class="offcanvas offcanvas-end offcanvas-sheet" tabindex="-1" id="cartOffcanvas">
     <div class="offcanvas-header border-0"><h5 class="offcanvas-title"><i class="bi bi-bag"></i> <span data-i18n="cart">购物车</span></h5><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div>
     <div class="offcanvas-body p-0 d-flex flex-column">
-      <div id="member_section" class="p-3 border-bottom border-sheet"></div>
+      
+      <div id="member_section" class="p-3 border-bottom border-sheet">
+          <div id="member_search">
+              <div class="input-group">
+                  <input type="tel" class="form-control" id="member_search_phone" data-i18n-placeholder="member_search_placeholder" placeholder="输入会员手机号查找">
+                  <button class="btn btn-outline-secondary" type="button" id="btn_find_member" data-i18n="member_find">查找</button>
+              </div>
+              <div class="mt-2">
+                  <button class="btn btn-link p-0 text-decoration-none" id="btn_show_create_member">
+                      <i class="bi bi-plus-circle"></i> <span data-i18n="member_create">创建新会员</span>
+                  </button>
+              </div>
+          </div>
+          <div id="member_info" style="display: none;">
+              <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                      <h6 class="mb-0" id="member_name"></h6>
+                      <small class="text-muted" id="member_level"></small>
+                  </div>
+                  <button class="btn btn-sm btn-outline-danger" id="btn_unlink_member" data-i18n="member_unlink">解除关联</button>
+              </div>
+              <div class="mt-2">
+                  <span data-i18n="member_points">积分</span>: <span class="fw-bold" id="member_points">0</span>
+              </div>
+              <div id="available_rewards_list" class="list-group list-group-flush mt-2"></div>
+          </div>
+      </div>
       <div id="cart_items" class="list-group list-group-flush flex-grow-1 overflow-y-auto"></div>
-      <div class="p-3 border-top border-sheet mt-auto">
+      
+      <div class="p-3 border-top border-sheet mt-auto" id="cart_footer">
         <div class="input-group mb-3"><input type="text" class="form-control" id="coupon_code_input" placeholder="输入优惠码"><button class="btn btn-outline-secondary" type="button" id="apply_coupon_btn">应用</button></div>
-        <div id="points_redemption_section" class="mb-3" style="display: none;">
+        <div id="points_redemption_section" class="mb-3">
             <div class="input-group">
-                <input type="number" class="form-control" id="points_to_redeem_input" placeholder="使用积分">
-                <button class="btn btn-outline-secondary" type="button" id="apply_points_btn">应用</button>
+                <input type="number" class="form-control" id="points_to_redeem_input" data-i18n-placeholder="points_redeem_placeholder" placeholder="使用积分" disabled>
+                <button class="btn btn-outline-secondary" type="button" id="apply_points_btn" data-i18n="points_apply_btn" disabled>应用</button>
             </div>
             <div class="form-text d-flex justify-content-between">
                 <span data-i18n="points_rule">100积分 = 1€</span>
                 <span id="points_feedback"></span>
             </div>
         </div>
-        <div class="d-flex justify-content-between align-items-center fs-5 mt-2"><span class="fw-semibold" data-i18n="payable">应收</span><span id="cart_payable" class="fw-bold text-brand">€0.00</span></div>
+        
+        <div class="d-flex justify-content-between align-items-center small text-muted">
+            <span data-i18n="total_before_discount">合计</span>
+            <span id="cart_subtotal_offcanvas">€0.00</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-center small text-danger">
+            <span data-i18n="eod_discounts">折扣总额</span>
+            <span id="cart_discount">€0.00</span>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center fs-5 mt-2">
+            <span class="fw-semibold" data-i18n="payable">应收</span>
+            <span id="cart_final_total" class="fw-bold text-brand">€0.00</span>
+        </div>
+        
         <div class="d-flex gap-2 mt-3"><button class="btn btn-outline-secondary flex-grow-1" id="btn_hold_current_cart" data-i18n="hold_this">挂起此单</button><button class="btn btn-brand flex-grow-1" id="btn_cart_checkout"><i class="bi bi-credit-card-2-front"></i> <span id="btn_cart_checkout_label" data-i18n="go_checkout">去结账</span></button></div>
       </div>
     </div>

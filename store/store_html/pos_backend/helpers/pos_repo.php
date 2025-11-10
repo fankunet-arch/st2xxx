@@ -7,6 +7,12 @@
  * Date: 2025-11-08
  *
  * [B1.2 PASS]: Added pass-related helpers (VR invoice, validation, allocation, tags, plan details)
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 2)]:
+ * 1. 重写 compute_expected_cash 函数。
+ * 2. 移除了对不存在的表 (pos_payments, pos_orders, pos_cash_movements) 的查询。
+ * 3. 新逻辑改为调用 GetaInvoiceSummaryForPeriod() 来获取正确的现金总额。
+ * 4. 因表不存在，cash_in, cash_out, cash_refunds 硬编码为 0.0。
  */
 
 /* -------------------------------------------------------------------------- */
@@ -374,90 +380,25 @@ if (!function_exists('col_exists')) {
 }
 
 if (!function_exists('compute_expected_cash')) {
+    /**
+     * [GEMINI SUPER-ENGINEER FIX (Error 2)]
+     * 重写此函数以使用 getInvoiceSummaryForPeriod，因为它查询的是真实存在的 pos_invoices 表。
+     * 删除了对 pos_payments, pos_orders, pos_cash_movements 的无效查询。
+     */
     function compute_expected_cash(PDO $pdo, int $store_id, string $start_iso, string $end_iso, float $starting_float): array {
-        $cash_sales   = 0.0;
+        
+        // 1. [FIX] 调用 getInvoiceSummaryForPeriod 来获取基于 pos_invoices 的正确支付汇总
+        // 该函数已正确处理 payment_summary JSON 解析和找零。
+        $full_summary = getInvoiceSummaryForPeriod($pdo, $store_id, $start_iso, $end_iso);
+        
+        $cash_sales   = (float)($full_summary['payments']['Cash'] ?? 0.0);
+        
+        // 2. [FIX] 由于 pos_cash_movements 表在 .sql 中不存在，必须将 cash_in/out 硬编码为 0
         $cash_in      = 0.0;
         $cash_out     = 0.0;
+        
+        // 3. [FIX] 由于没有退款表或清晰的退款支付逻辑，cash_refunds 也必须为 0
         $cash_refunds = 0.0;
-
-        // 1) 优先用 pos_payments(method='CASH')
-        if (table_exists($pdo, 'pos_payments')) {
-            $ts_col  = col_exists($pdo,'pos_payments','paid_at')    ? 'paid_at'
-                    : (col_exists($pdo,'pos_payments','created_at') ? 'created_at' : null);
-            $amt_col = col_exists($pdo,'pos_payments','amount_eur') ? 'amount_eur'
-                    : (col_exists($pdo,'pos_payments','amount')     ? 'amount'     : null);
-            if ($ts_col && $amt_col && col_exists($pdo,'pos_payments','method')) {
-                // 现金销售（正额，排除退款）
-                $sql = "SELECT COALESCE(SUM($amt_col),0) FROM pos_payments
-                        WHERE store_id=? AND method='CASH' AND $ts_col BETWEEN ? AND ?
-                          AND (NOT (COALESCE(is_refund,0)=1))";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([$store_id, $start_iso, $end_iso]);
-                $cash_sales = (float)$stmt->fetchColumn();
-
-                // 现金退款
-                if (col_exists($pdo, 'pos_payments', 'is_refund')) {
-                    $sql = "SELECT COALESCE(SUM($amt_col),0) FROM pos_payments
-                            WHERE store_id=? AND method='CASH' AND COALESCE(is_refund,0)=1
-                              AND $ts_col BETWEEN ? AND ?";
-                    $stmt = $pdo->prepare($sql);
-                    $stmt->execute([$store_id, $start_iso, $end_iso]);
-                    $cash_refunds = (float)$stmt->fetchColumn();
-                } else {
-                    // 无 is_refund 字段时：负金额视作退款
-                    $sql = "SELECT COALESCE(SUM(CASE WHEN $amt_col<0 THEN -$amt_col ELSE 0 END),0)
-                            FROM pos_payments
-                            WHERE store_id=? AND method='CASH' AND $ts_col BETWEEN ? AND ?";
-                    $stmt = $pdo->prepare($sql);
-                    $stmt->execute([$store_id, $start_iso, $end_iso]);
-                    $cash_refunds = (float)$stmt->fetchColumn();
-                }
-            }
-        }
-        // 2) 回退：pos_orders（payment_method='CASH'）
-        elseif (table_exists($pdo, 'pos_orders')) {
-            $ts_col  = col_exists($pdo,'pos_orders','paid_at')     ? 'paid_at'
-                    : (col_exists($pdo,'pos_orders','created_at')  ? 'created_at' : null);
-            $amt_col = col_exists($pdo,'pos_orders','grand_total_eur')   ? 'grand_total_eur'
-                    : (col_exists($pdo,'pos_orders','total_amount_eur') ? 'total_amount_eur'
-                    : (col_exists($pdo,'pos_orders','total')           ? 'total' : null));
-            if ($ts_col && $amt_col && col_exists($pdo,'pos_orders','payment_method')) {
-                $where_paid = col_exists($pdo,'pos_orders','status') ? "AND status IN ('PAID','COMPLETED','CLOSED')" : '';
-                $sql = "SELECT COALESCE(SUM($amt_col),0) FROM pos_orders
-                        WHERE store_id=? AND payment_method='CASH' $where_paid
-                          AND $ts_col BETWEEN ? AND ?";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([$store_id, $start_iso, $end_iso]);
-                $cash_sales = (float)$stmt->fetchColumn();
-            }
-        }
-
-        // 3) 现金出入：pos_cash_movements
-        if (table_exists($pdo, 'pos_cash_movements')) {
-            $ts_col  = col_exists($pdo,'pos_cash_movements','created_at') ? 'created_at'
-                    : (col_exists($pdo,'pos_cash_movements','occurred_at') ? 'occurred_at' : null);
-            $amt_col = col_exists($pdo,'pos_cash_movements','amount_eur') ? 'amount_eur'
-                    : (col_exists($pdo,'pos_cash_movements','amount')     ? 'amount'     : null);
-            $type_col= col_exists($pdo,'pos_cash_movements','movement_type') ? 'movement_type'
-                    : (col_exists($pdo,'pos_cash_movements','type')          ? 'type'          : null);
-            if ($ts_col && $amt_col && $type_col) {
-                // IN
-                $sql = "SELECT COALESCE(SUM($amt_col),0) FROM pos_cash_movements
-                        WHERE store_id=? AND $type_col IN ('CASH_IN','SAFE_IN','ADJUST_IN')
-                          AND $ts_col BETWEEN ? AND ?";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([$store_id, $start_iso, $end_iso]);
-                $cash_in = (float)$stmt->fetchColumn();
-
-                // OUT
-                $sql = "SELECT COALESCE(SUM($amt_col),0) FROM pos_cash_movements
-                        WHERE store_id=? AND $type_col IN ('CASH_OUT','PAYOUT','SAFE_OUT','ADJUST_OUT')
-                          AND $ts_col BETWEEN ? AND ?";
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([$store_id, $start_iso, $end_iso]);
-                $cash_out = (float)$stmt->fetchColumn();
-            }
-        }
 
         $expected_cash = (float)$starting_float + (float)$cash_sales + (float)$cash_in - (float)$cash_out - (float)$cash_refunds;
 

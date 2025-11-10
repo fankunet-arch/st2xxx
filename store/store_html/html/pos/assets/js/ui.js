@@ -14,6 +14,10 @@
  *
  * [GEMINI 购物车参数修复 V3.0]
  * 1. (问题 4) 修复 refreshCartUI，将冰量/糖度/加料的 ID/Code 映射回 STATE 中的 name_zh/name_es/label_zh/label_es。
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 1.B)]:
+ * 1. 修复 refreshCartUI，使其同时更新主页面底部栏的 `#cart_subtotal` 和侧边栏的 `#cart_subtotal_offcanvas`。
+ * 2. 修复 refreshCartUI，使其正确更新侧边栏的 `#cart_final_total`。
  */
 
 import { STATE } from './state.js';
@@ -268,6 +272,8 @@ export function refreshCartUI() {
         $cartFooter.hide();
         // [修复问题3] ID 从 #cart_badge 修正为 #cart_count
         $('#cart_count').text('0');
+        // [GEMINI FIX 1.B] 购物车为空时，主页总计也清零
+        $('#cart_subtotal').text(fmtEUR(0));
         return;
     }
 
@@ -316,7 +322,7 @@ export function refreshCartUI() {
                         <div class="fw-bold">${fmtEUR(item.unit_price_eur * item.qty)}</div>
                         <div class="qty-stepper mt-1">
                             <button class="btn btn-sm btn-outline-secondary" data-act="del" data-id="${item.id}"><i class="bi bi-trash"></i></button>
-                            <button class="btn btn-sm btn-outline-secondary" data-act="dec" data-id="${item.id}"><i class="bi bi-dash"></i></button>
+                            <button class_name="btn btn-sm btn-outline-secondary" data-act="dec" data-id="${item.id}"><i class="bi bi-dash"></i></button>
                             <span class="px-1">${item.qty}</span>
                             <button class="btn btn-sm btn-outline-secondary" data-act="inc" data-id="${item.id}"><i class="bi bi-plus"></i></button>
                         </div>
@@ -327,7 +333,12 @@ export function refreshCartUI() {
     });
 
     const { subtotal, discount_amount, final_total } = STATE.calculatedCart;
+    
+    // [GEMINI FIX 1.B] 更新主页底部栏的合计（税前）
     $('#cart_subtotal').text(fmtEUR(subtotal));
+    
+    // [GEMINI FIX 1.B] 更新侧边栏的详细总计
+    $('#cart_subtotal_offcanvas').text(fmtEUR(subtotal));
     $('#cart_discount').text(`-${fmtEUR(discount_amount)}`);
     $('#cart_final_total').text(fmtEUR(final_total));
     
