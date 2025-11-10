@@ -1,55 +1,52 @@
 <?php
 /**
- * Toptea KDS - Get Image
- * Fetches an image from the protected 'store_images' directory.
- *
- * [SECURITY FIX V2.0]:
- * - Added basename() to $_GET['name'] to prevent Path Traversal.
+ * TopTea KDS - Secure Image Proxy
+ * Return images from /store_html/store_images/kds (private) to the browser.
+ * Location of this script: /store_html/html/kds/api/get_image.php
+ * So base path to images is: __DIR__ . '/../../../store_images/kds'
  */
+declare(strict_types=1);
 
-// 1. Get and Sanitize File Name
-// [FIX] Changed 'name' to 'file' to match kds_sop.js request
-$name_raw = $_GET['file'] ?? 'noimg.png';
-
-// [SECURITY FIX] Use basename() to prevent Path Traversal (e.g., ../../)
-// This ensures we only get a filename.
-$name = basename($name_raw);
-
-// Failsafe: If basename returns an empty string or dot, default to noimg.
-if (empty($name) || $name === '.' || $name === '..') {
-    $name = 'noimg.png';
-}
-
-// 2. Define Base Path
-// __DIR__ is /store/store_html/html/kds/api
-$base_path = realpath(__DIR__ . '/../../../../store_images/kds');
-$file_path = $base_path . '/' . $name;
-$fallback_path = $base_path . '/noimg.png';
-
-// 3. Check if file exists and is valid
-if (!$base_path || strpos(realpath($file_path), $base_path) !== 0 || !is_file($file_path)) {
-    // If file doesn't exist, or attempts directory traversal, use fallback
-    $file_path = $fallback_path;
-}
-
-// 4. Determine MIME Type
-$mime_type = 'image/png'; // Default
-$extension = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
-if ($extension === 'jpg' || $extension === 'jpeg') {
-    $mime_type = 'image/jpeg';
-} elseif ($extension === 'gif') {
-    $mime_type = 'image/gif';
-}
-
-// 5. Output the image
-if (is_file($file_path)) {
-    header('Content-Type: ' . $mime_type);
-    header('Content-Length: ' . filesize($file_path));
-    readfile($file_path);
-    exit;
-} else {
-    // Should not happen if noimg.png exists, but as a final failsafe:
-    http_response_code(404);
-    echo "Image not found.";
+// 1) Input & sanitization
+$name = isset($_GET['name']) ? trim((string)$_GET['name']) : '';
+$name = basename($name); // drop any path
+if ($name === '' || !preg_match('/^[a-zA-Z0-9._-]+$/', $name)) {
+    http_response_code(400);
+    echo 'Bad request.';
     exit;
 }
+
+// 2) Resolve paths
+$base_dir = realpath(__DIR__ . '/../../../store_images/kds') ?: '';
+$fallback = realpath(__DIR__ . '/../../../store_images/noimg.png') ?: '';
+if ($base_dir === '' || !is_dir($base_dir)) {
+    http_response_code(500);
+    echo 'Image base path error.';
+    exit;
+}
+$target = $base_dir . DIRECTORY_SEPARATOR . $name;
+if (!is_file($target)) {
+    $target = $fallback;
+}
+
+// 3) MIME
+$ext = strtolower(pathinfo($target, PATHINFO_EXTENSION));
+$mime = 'application/octet-stream';
+switch ($ext) {
+    case 'png': $mime = 'image/png'; break;
+    case 'jpg':
+    case 'jpeg': $mime = 'image/jpeg'; break;
+    case 'gif': $mime = 'image/gif'; break;
+    case 'webp': $mime = 'image/webp'; break;
+}
+
+// 4) Output
+if (is_file($target)) {
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . (string)filesize($target));
+    header('X-Content-Type-Options: nosniff');
+    readfile($target);
+    exit;
+}
+http_response_code(404);
+echo 'Not found.';

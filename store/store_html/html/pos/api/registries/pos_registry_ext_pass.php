@@ -4,9 +4,14 @@
  * Version: 1.0.1
  * Date: 2025-11-09
  * 注意：本文件取代旧文件 "pos registry ext_pass.php"（带空格），请删除旧文件。
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 2/3)]
+ * 1. 移除了 'declare(strict_types=1);'。
+ * 2. 此文件被 pos_api_gateway.php 包含 (include)，不应有自己的 strict_types 声明，
+ * 以避免在特定 PHP 版本或配置下引发 500 错误。
  */
 
-declare(strict_types=1);
+// [GEMINI FIX] 移除: declare(strict_types=1);
 
 require_once realpath(__DIR__ . '/../../../../pos_backend/helpers/pos_helper.php');
 require_once realpath(__DIR__ . '/../../../../pos_backend/helpers/pos_pass_helper.php');
@@ -18,14 +23,14 @@ if (!defined('ROLE_STORE_USER')) define('ROLE_STORE_USER', 'staff');
  * 次卡核销（redeem）
  * 入参（JSON）示例：
  * {
- *   "member_id": 123,
- *   "member_pass_id": 456,
- *   "redeemed_uses_in_order": 1,
- *   "device_id": "POS-01",
- *   "madrid_date": "2025-11-09",
- *   "cart": [{ "product_id":1001, "title_zh":"经典奶茶", "qty":1, "final_price":3.50, "addons":[] }],
- *   "payment": [{ "method":"cash", "amount":0 }],
- *   "idempotency_key": "abcd1234..." // 可选
+ * "member_id": 123,
+ * "member_pass_id": 456,
+ * "redeemed_uses_in_order": 1,
+ * "device_id": "POS-01",
+ * "madrid_date": "2025-11-09",
+ * "cart": [{ "product_id":1001, "title_zh":"经典奶茶", "qty":1, "final_price":3.50, "addons":[] }],
+ * "payment": [{ "method":"cash", "amount":0 }],
+ * "idempotency_key": "abcd1234..." // 可选
  * }
  */
 function handle_pass_redeem(PDO $pdo, array $config, array $input): void {

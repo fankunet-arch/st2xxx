@@ -101,9 +101,11 @@
                  return;
             }
 
-            // 异步获取打印模板并存入 KDS_STATE
+            // [GEMINI SUPER-ENGINEER FIX (Error 2)]
+            // 修复了跨平台调用的错误。
+            // KDS 应该调用自己的网关 (kds_api_gateway.php) 来获取模板。
             $.ajax({
-                url: '../pos/api/pos_print_handler.php?action=get_templates&kds_store_id=' + kds_store_id,
+                url: 'api/kds_api_gateway.php?res=print&act=get_templates',
                 type: 'GET',
                 dataType: 'json',
                 success: function(response) {

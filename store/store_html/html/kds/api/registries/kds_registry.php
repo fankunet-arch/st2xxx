@@ -6,6 +6,12 @@
  * Date: 2025-11-08
  *
  * [A2 UTC SYNC]: Modified handle_kds_expiry_record to use utc_now().
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 2)]
+ * 1. KDS 布局 (main.php) 需要加载打印模板。为遵循“禁止跨平台调用”的规则，KDS API 必须能自己提供模板。
+ * 2. 从 pos_registry.php 复制了 handle_print_get_templates 函数。
+ * 3. 修改了此函数，使其使用 KDS 的会话变量 ($_SESSION['kds_store_id'])。
+ * 4. 添加了新的 'print' 资源到注册表。
  */
 
 // 1. 加载所有 KDS 业务逻辑函数 (来自 kds_repo.php)
@@ -18,6 +24,36 @@ if (!defined('ROLE_STORE_MANAGER')) {
 if (!defined('ROLE_STORE_USER')) {
     define('ROLE_STORE_USER', 'staff');
 }
+
+/* -------------------------------------------------------------------------- */
+/* Handlers: 迁移自 /pos/api/pos_print_handler.php (KDS 需要)     */
+/* -------------------------------------------------------------------------- */
+function handle_print_get_templates(PDO $pdo, array $config, array $input_data): void {
+    // [GEMINI FIX 2] 使用 KDS 会话
+    $store_id = (int)($_SESSION['kds_store_id'] ?? 0);
+    if ($store_id === 0) json_error('无法确定门店ID。', 401);
+
+    $stmt = $pdo->prepare(
+        "SELECT template_type, template_content, physical_size
+         FROM pos_print_templates 
+         WHERE (store_id = :store_id OR store_id IS NULL) AND is_active = 1
+         ORDER BY store_id DESC"
+    );
+    $stmt->execute([':store_id' => $store_id]);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $templates = [];
+    foreach ($results as $row) {
+        if (!isset($templates[$row['template_type']])) {
+            $templates[$row['template_type']] = [
+                'content' => json_decode($row['template_content'], true),
+                'size' => $row['physical_size']
+            ];
+        }
+    }
+    json_ok($templates, 'Templates loaded.');
+}
+
 
 /* -------------------------------------------------------------------------- */
 /* Handlers: 迁移自 /kds/api/sop_handler.php*/
@@ -286,6 +322,14 @@ function handle_kds_update_expiry_status(PDO $pdo, array $config, array $input_d
 /* 注册表*/
 /* -------------------------------------------------------------------------- */
 return [
+    
+    // [GEMINI FIX 2] 新增 'print' 资源
+    'print' => [
+        'auth_role' => ROLE_STORE_USER,
+        'custom_actions' => [
+            'get_templates' => 'handle_print_get_templates',
+        ],
+    ],
     
     // KDS: SOP
     'sop' => [

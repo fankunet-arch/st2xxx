@@ -4,6 +4,10 @@
  * Version: 1.0.2
  * Date: 2025-11-09
  * 说明：加载核心 + 主注册表 + 扩展（次卡/诊断），按顺序合并。
+ *
+ * [GEMINI SUPER-ENGINEER FIX (Error 1/3)]
+ * 1. 修复了 "Fatal error: strict_types declaration must be the very first statement" 错误。
+ * 2. 将 'declare(strict_types=1);' 语句从第 12 行（require_once 之后）移动到第 9 行（require_once 之前）。
  */
 
 declare(strict_types=1);
