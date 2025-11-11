@@ -1,3 +1,14 @@
+/**
+ * POS 交易模块
+ * Revision: 1.1 (A3 UTC DISPLAY FIX)
+ *
+ * [A3 UTC DISPLAY FIX]:
+ * - 修正了 `refreshTxnList` 和 `showTxnDetails` 中的 `new Date()` 调用。
+ * - 之前: PHP 错误地发送了 `fmt_local`，导致 JS 意外“正确”工作。
+ * - 修正: PHP 现在发送原始 UTC 字符串 (e.g., "2025-11-11 10:30:00")。
+ * JS 必须使用 `new Date(string.replace(' ', 'T') + 'Z')` 来强制将其解析为 UTC，
+ * 然后 `toLocaleString()` 才能正确转换为本地时间。
+ */
 import { t, fmtEUR, toast } from '../utils.js';
 import { STATE } from '../state.js';
 
@@ -192,6 +203,10 @@ export async function openTxnQueryPanel() {
     txnQueryOffcanvas.show();
 }
 
+/**
+ * [A3 UTC DISPLAY FIX]
+ * 修正此函数以正确解析来自后端的原始 UTC 字符串。
+ */
 async function refreshTxnList() {
     const listTarget = document.getElementById('txn_list_target');
     const startDate = document.getElementById('txn_start_date').value;
@@ -216,8 +231,14 @@ async function refreshTxnList() {
             }
             let html = '<div class="list-group list-group-flush">';
             result.data.forEach(txn => {
-                const localTime = txn.issued_at.replace(' ', 'T'); 
-                const time = new Date(localTime).toLocaleString(STATE.lang === 'zh' ? 'zh-CN' : 'es-ES', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                // [A3 UTC DISPLAY FIX]
+                // txn.issued_at 是 "2025-11-11 10:30:00.123456" (UTC, 来自DB)
+                // 1. 强制解析为 UTC
+                const utcString = String(txn.issued_at).replace(' ', 'T') + 'Z';
+                const date = new Date(utcString);
+                // 2. 转换为本地时间显示
+                const time = date.toLocaleString(STATE.lang === 'zh' ? 'zh-CN' : 'es-ES', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
                 const statusClass = txn.status === 'CANCELLED' ? 'text-danger' : '';
                 const statusText = txn.status === 'CANCELLED' ? `(${t('cancelled')})` : '';
                 const invoiceNumber = `${txn.series || ''}-${txn.number || txn.id}`;
@@ -237,6 +258,10 @@ async function refreshTxnList() {
     }
 }
 
+/**
+ * [A3 UTC DISPLAY FIX]
+ * 修正此函数以正确解析来自后端的原始 UTC 字符串。
+ */
 export async function showTxnDetails(id) {
     const detailModalEl = document.getElementById('txnDetailModal');
     const detailModal = new bootstrap.Modal(detailModalEl);
@@ -265,8 +290,14 @@ export async function showTxnDetails(id) {
             });
 
             const statusBadge = `<span class="badge text-bg-${d.status === 'CANCELLED' ? 'danger':'success'}">${t(d.status.toLowerCase())}</span>`;
-            const localTime = d.issued_at.replace(' ', 'T');
-            const timeDisplay = new Date(localTime).toLocaleString(STATE.lang === 'zh' ? 'zh-CN' : 'es-ES', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            
+            // [A3 UTC DISPLAY FIX]
+            // d.issued_at 是 "2025-11-11 10:30:00.123456" (UTC, 来自DB)
+            // 1. 强制解析为 UTC
+            const utcString = String(d.issued_at).replace(' ', 'T') + 'Z';
+            const date = new Date(utcString);
+            // 2. 转换为本地时间显示
+            const timeDisplay = date.toLocaleString(STATE.lang === 'zh' ? 'zh-CN' : 'es-ES', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
             const bodyHtml = `
                 <p><strong>${t('invoice_number')}:</strong> ${invoiceNumber}</p>

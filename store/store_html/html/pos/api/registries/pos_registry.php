@@ -2,8 +2,12 @@
 /**
  * Toptea Store - POS 统一 API 注册表
  * 迁移所有 store/html/pos/api/ 的逻辑
- * Version: 1.2.1 (Phase 4: Load StoreConfig & CupCode)
- * Date: 2025-11-08
+ * Version: 1.2.2 (UTC Display Fix)
+ * Date: 2025-11-11
+ *
+ * [A3 UTC DISPLAY FIX]:
+ * - 移除了 handle_txn_list, handle_txn_get_details, handle_eod_list, handle_eod_get 中的 fmt_local() 调用。
+ * - 修正：后端必须始终发送原始 UTC 字符串，由前端 JavaScript 负责转换为本地时间。
  *
  * [A2 UTC SYNC]: Modified handle_order_submit to use utc_now() for timestamps.
  * [B1.2 PASS]: Added 'pass' resource (purchase/redeem).
@@ -1008,10 +1012,9 @@ function handle_txn_list(PDO $pdo, array $config, array $input_data): void {
     $stmt->execute($params);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // [A2 UTC SYNC] 将 issued_at 转换为本地时间字符串
-    foreach ($transactions as &$txn) {
-        $txn['issued_at'] = fmt_local($txn['issued_at'], 'Y-m-d H:i:s', $tz);
-    }
+    // [A3 UTC DISPLAY FIX]
+    // 移除: foreach ($transactions as &$txn) { ... fmt_local ... }
+    // 理由: 必须发送原始 UTC 字符串到前端，由 JS 负责转换。
 
     json_ok($transactions, 'Transactions retrieved.');
 }
@@ -1031,8 +1034,9 @@ function handle_txn_get_details(PDO $pdo, array $config, array $input_data): voi
 
     if (!$invoice) json_error('Invoice not found.', 404);
 
-    // [A2 UTC SYNC] 转换时间
-    $invoice['issued_at'] = fmt_local($invoice['issued_at'], 'Y-m-d H:i:s.u', APP_DEFAULT_TIMEZONE);
+    // [A3 UTC DISPLAY FIX]
+    // 移除: $invoice['issued_at'] = fmt_local(...)
+    // 理由: 必须发送原始 UTC 字符串到前端。
 
     $stmt_items = $pdo->prepare("SELECT * FROM pos_invoice_items WHERE invoice_id = ?");
     $stmt_items->execute([$id]);
@@ -1193,8 +1197,9 @@ function handle_eod_get_preview(PDO $pdo, array $config, array $input_data): voi
     $existing_report = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
     if ($existing_report) {
-        // [A2 UTC SYNC] 转换已存储的 UTC 时间
-        $existing_report['executed_at'] = fmt_local($existing_report['executed_at']);
+        // [A3 UTC DISPLAY FIX]
+        // 移除: $existing_report['executed_at'] = fmt_local(...)
+        // 理由: 必须发送原始 UTC 字符串到前端。
         json_ok(['is_submitted' => true, 'existing_report' => $existing_report]);
     }
 
@@ -1314,13 +1319,9 @@ function handle_eod_list(PDO $pdo, array $config, array $input_data): void {
     $stmt->execute([$store_id, $limit]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // [A2 UTC SYNC] 转换时间
-    $tz = APP_DEFAULT_TIMEZONE;
-    foreach ($rows as &$row) {
-        $row['started_at'] = fmt_local($row['started_at'], 'Y-m-d H:i', $tz);
-        $row['ended_at'] = fmt_local($row['ended_at'], 'Y-m-d H:i', $tz);
-        $row['created_at'] = fmt_local($row['created_at'], 'Y-m-d H:i', $tz);
-    }
+    // [A3 UTC DISPLAY FIX]
+    // 移除: foreach ($rows as &$row) { ... fmt_local ... }
+    // 理由: 必须发送原始 UTC 字符串到前端。
 
     json_ok(['items'=>$rows, 'count'=>count($rows)], 'ok');
 }
@@ -1338,11 +1339,9 @@ function handle_eod_get(PDO $pdo, array $config, array $input_data): void {
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row) json_error('Record not found', 404);
 
-    // [A2 UTC SYNC] 转换时间
-    $tz = APP_DEFAULT_TIMEZONE;
-    $row['started_at'] = fmt_local($row['started_at'], 'Y-m-d H:i', $tz);
-    $row['ended_at'] = fmt_local($row['ended_at'], 'Y-m-d H:i', $tz);
-    $row['created_at'] = fmt_local($row['created_at'], 'Y-m-d H:i', $tz);
+    // [A3 UTC DISPLAY FIX]
+    // 移除: $row['started_at'] = fmt_local(...) 等
+    // 理由: 必须发送原始 UTC 字符串到前端。
 
     json_ok(['item'=>$row], 'OK');
 }

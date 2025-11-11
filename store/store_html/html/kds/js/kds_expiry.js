@@ -2,7 +2,13 @@
  * Toptea KDS - kds_expiry.js
  * JavaScript for Expiry Tracking Page
  * Engineer: Gemini | Date: 2025-10-31
- * Revision: 10.1 (API Gateway Refactor)
+ * Revision: 10.2 (A3 UTC DISPLAY FIX)
+ *
+ * [A3 UTC DISPLAY FIX]:
+ * - 修正了 `formatTime` 和 `calculateTimeLeft` 中的 `new Date()` 调用。
+ * - 之前: `new Date(isoString)` 会将 "2025-11-11 10:30:00" 错误地解析为 *本地* 10:30。
+ * - 修正: `new Date(isoString.replace(' ', 'T') + 'Z')` 强制将字符串解析为 *UTC* 10:30，
+ * 这样 `.toLocaleString()` 和 `new Date()` (for `now`) 才能正确计算本地时间和剩余时间。
  */
 
 let confirmationModal = null;
@@ -135,8 +141,53 @@ document.addEventListener('DOMContentLoaded', function () {
         return tr;
     }
     
-    function formatTime(isoString) { const date = new Date(isoString); return date.toLocaleString('zh-CN', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-'); }
-    function calculateTimeLeft(expiresAt) { const now = new Date(); const expiry = new Date(expiresAt); let diff = expiry - now; if (diff <= 0) { return { text: `<span class="text-danger fw-bold">${translations.status_expired}</span>`, class: 'danger' }; } const hoursLeft = diff / (1000 * 60 * 60); let statusClass = 'normal'; if (hoursLeft <= 2) statusClass = 'warning'; if (hoursLeft <= 0) statusClass = 'danger'; const d = Math.floor(diff / (1000 * 60 * 60 * 24)); diff -= d * (1000 * 60 * 60 * 24); const h = Math.floor(diff / (1000 * 60 * 60)); diff -= h * (1000 * 60 * 60); const m = Math.floor(diff / (1000 * 60)); const text = translations.time_left_format.replace('{d}', d).replace('{h}', h).replace('{m}', m); return { text, class: statusClass }; }
+    /**
+     * [A3 UTC DISPLAY FIX]
+     * @param {string} isoString - 数据库原始 UTC 字符串 (e.g., "2025-11-11 10:30:00.123456")
+     */
+    function formatTime(isoString) { 
+        if (!isoString) return 'N/A';
+        // 1. 将 "YYYY-MM-DD HH:MM:SS" 转换为 "YYYY-MM-DDTHH:MM:SSZ"
+        const utcString = String(isoString).replace(' ', 'T') + 'Z';
+        // 2. new Date() 将正确解析 UTC 字符串
+        const date = new Date(utcString); 
+        // 3. .toLocaleString() 将正确转换为本地时间
+        return date.toLocaleString('zh-CN', { hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/\//g, '-'); 
+    }
+
+    /**
+     * [A3 UTC DISPLAY FIX]
+     * @param {string} expiresAt - 数据库原始 UTC 字符串
+     */
+    function calculateTimeLeft(expiresAt) { 
+        const now = new Date(); // 当前本地时间
+        if (!expiresAt) return { text: 'N/A', class: 'normal' };
+
+        // 1. 将 "YYYY-MM-DD HH:MM:SS" 转换为 "YYYY-MM-DDTHH:MM:SSZ"
+        const utcString = String(expiresAt).replace(' ', 'T') + 'Z';
+        // 2. new Date() 将正确解析 UTC 字符串并自动转换为本地 Date 对象
+        const expiry = new Date(utcString); 
+        
+        let diff = expiry - now; // 毫秒差异
+
+        if (diff <= 0) { 
+            return { text: `<span class="text-danger fw-bold">${translations.status_expired}</span>`, class: 'danger' }; 
+        } 
+        
+        const hoursLeft = diff / (1000 * 60 * 60); 
+        let statusClass = 'normal'; 
+        if (hoursLeft <= 2) statusClass = 'warning'; 
+        
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24)); 
+        diff -= d * (1000 * 60 * 60 * 24); 
+        const h = Math.floor(diff / (1000 * 60 * 60)); 
+        diff -= h * (1000 * 60 * 60); 
+        const m = Math.floor(diff / (1000 * 60)); 
+        
+        const text = translations.time_left_format.replace('{d}', d).replace('{h}', h).replace('{m}', m); 
+        return { text, class: statusClass }; 
+    }
+
     async function fetchAndRenderItems() { try { const response = await fetch(API_GET_URL); if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`); const result = await response.json(); if (result.status === 'success' && result.data) { listBody.innerHTML = ''; if (result.data.length > 0) { result.data.forEach(item => listBody.appendChild(createRow(item))); } else { listBody.innerHTML = `<tr><td colspan="5" class="text-center">${translations.no_items}</td></tr>`; } } else { throw new Error(result.message || 'Invalid data from API'); } } catch (error) { console.error('Failed to fetch expiry items:', error); listBody.innerHTML = `<tr><td colspan="5" class="text-center text-danger fw-bold">${translations.loading_failed}</td></tr>`; } }
 
     fetchAndRenderItems();
