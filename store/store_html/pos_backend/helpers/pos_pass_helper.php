@@ -2,12 +2,16 @@
 /**
  * Toptea POS - 次卡业务助手
  * Scope: POS-only
- * Version: 1.0.1
- * Date: 2025-11-09
+ * Version: 1.0.2 (GEMINI P3 FIX)
+ * Date: 2025-11-12
  *
  * [GEMINI FIX 2025-11-10] 修复 create_redeem_records 中
  * "SQLSTATE[HY093]: Invalid parameter number" 错误。
  * INSERT 语句的 VALUES 占位符数量与 execute() 数组不匹配。
+ *
+ * [GEMINI P3 SCHEMA FIX 2025-11-12]
+ * 1. 修复 create_redeem_records 中对 pass_redemption_batches 的 INSERT 语句。
+ * 2. 增加 `extra_charge_total` 字段的写入，以匹配 P3 数据库修复补丁。
  */
 
 declare(strict_types=1);
@@ -182,14 +186,19 @@ if (!function_exists('create_redeem_records')) {
             }
 
             // 3) 核销批次 + 明细
+            
+            // [GEMINI P3 SCHEMA FIX 2025-11-12] 增加 extra_charge_total 字段
             $batch_stmt = $pdo->prepare("
                 INSERT INTO pass_redemption_batches
-                (member_pass_id, order_id, redeemed_uses, store_id, cashier_user_id, created_at)
-                VALUES (?,?,?,?,?,?)
+                (member_pass_id, order_id, redeemed_uses, extra_charge_total, store_id, cashier_user_id, created_at)
+                VALUES (?,?,?,?,?,?,?)
             ");
+            // [GEMINI P3 SCHEMA FIX 2025-11-12] 增加 $alloc['extra_total'] 参数
             $batch_stmt->execute([
                 (int)$member_pass['member_pass_id'], $invoice_id,
-                (int)$plan['_uses_in_this_order'], $store_id, $user_id,
+                (int)$plan['_uses_in_this_order'],
+                (float)$alloc['extra_total'], // <-- 新增
+                $store_id, $user_id,
                 utc_now()->format('Y-m-d H:i:s.u')
             ]);
             $batch_id = (int)$pdo->lastInsertId();

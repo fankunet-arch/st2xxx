@@ -9,6 +9,9 @@
  * 1. 修正所有 JOINs 以匹配数据库 (pass_plan_id, plan_id)。
  * 2. 移除重复的 get_pass_plan_details() (修复 "Cannot redeclare" 错误)。
  * 3. 验证所有 execute() 参数数量以匹配 '?' 占位符 (修复 "HY093" 错误)。
+ *
+ * [GEMINI P3 LOCK FIX 2025-11-12]
+ * 1. 补全 P3 计划中缺失的 get_member_pass_for_update() 函数，实现并发锁。
  */
 
 declare(strict_types=1);
@@ -165,4 +168,33 @@ function find_redeemable_pass(PDO $pdo, int $member_id, int $menu_item_id): ?arr
     $pass = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $pass ?: null;
+}
+
+/**
+ * [GEMINI P3 LOCK FIX] 新增
+ * 获取会员次卡并施加行级锁 (FOR UPDATE)
+ * @param PDO $pdo
+ * @param int $member_pass_id
+ * @return array
+ * @throws Exception
+ */
+function get_member_pass_for_update(PDO $pdo, int $member_pass_id): array {
+    $stmt = $pdo->prepare("
+        SELECT 
+            mp.member_pass_id, mp.member_id, mp.pass_plan_id, 
+            mp.remaining_uses, mp.expires_at, mp.status,
+            p.max_uses_per_order, p.max_uses_per_day,
+            mp.unit_allocated_base
+        FROM member_passes mp
+        JOIN pass_plans p ON mp.pass_plan_id = p.pass_plan_id
+        WHERE mp.member_pass_id = ?
+        FOR UPDATE
+    ");
+    $stmt->execute([$member_pass_id]);
+    $pass = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$pass) {
+        throw new Exception('找不到指定的会员次卡 (ID: ' . $member_pass_id . ')。', 404);
+    }
+    return $pass;
 }
